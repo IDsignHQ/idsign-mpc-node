@@ -1,0 +1,22 @@
+{
+	"name": "@idsign/zk-share",
+	"description": "Solidity EVM smart-contracts for idSign",
+	"author": "idSign inc.",
+	"homepage": "https://idsign.com",
+	"keywords": [
+		"idsign",
+		"evm",
+		"solidity"
+	],
+	"license":"BUSL-1.1",
+	"version": "0.1.0",
+	"main": "./typechain-types/index.ts",
+	"types": "./typechain-types/index.ts",
+	"files": [
+		"typechain-types/**"
+	],
+	"scripts": {
+	},
+	"devDependencies": {
+	}
+}
