@@ -1,19 +1,20 @@
 {
 	"name": "@idsign/zk-share",
-	"description": "Solidity EVM smart-contracts for idSign",
+	"description": "MPC ZK decentralized key management and secrets sharing protocol and the ts-sdk",
 	"author": "idSign inc.",
 	"homepage": "https://idsign.com",
 	"keywords": [
 		"idsign",
-		"evm",
-		"solidity"
+		"rust",
+		"partisia blockchain",
+		"mpc"
 	],
 	"license":"BUSL-1.1",
 	"version": "0.1.0",
-	"main": "./typechain-types/index.ts",
-	"types": "./typechain-types/index.ts",
+	"main": "./types/index.ts",
+	"types": "./types/index.ts",
 	"files": [
-		"typechain-types/**"
+		"types/**"
 	],
 	"scripts": {
 	},
