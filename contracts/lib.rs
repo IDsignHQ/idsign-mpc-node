@@ -34,7 +34,7 @@ fn initialize(_ctx: ContractContext, _zk_state: ZkState<SecretVarMetadata>) -> C
 }
 
 
-/// Creates new ZKshare and returns the encryption_key Securly via MPC
+/// Creates new zkVault and returns the encryption_key Securly via MPC
 #[zk_on_secret_input(shortname = 0x40)]
 pub fn new_vault(
     context: ContractContext,
@@ -59,12 +59,11 @@ pub fn new_vault(
     // add vault to state
     state.vaults.insert(data_hash, members);
 
-    // securely return encryption_key and share_id and SecretVarId
     let input_def = ZkInputDef::with_metadata(SecretVarType {});
     (state, vec![], input_def)
 }
 
-/// Initializes MPC computation request for the share encryption_key.
+/// Initializes MPC computation request for the vault.
 #[action(shortname = 0x01, zk = true)]
 fn request_access(
     context: ContractContext,

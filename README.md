@@ -1,18 +1,29 @@
-# ZK as a service
+# zkVaults Module (DKMS)
+ZK-MPC encrypted secret sharing module enabling the most private decentralized file sharing with no one in the middle, not event idSign; ONLY the wallets added to document can ever reconstruct and decrypt the documents shared via IPFS
 
-This repository contains example code for using ZK-as-a-service as a second layer for an existing
-EVM app that can display the result of a secret vote.
+---
 
-An overview of how PBC can be used as a second layer solution can be found [here](https://partisiablockchain.gitlab.io/documentation/smart-contracts/pbc-as-second-layer/partisia-blockchain-as-second-layer.html).
+### TL;DR
 
-## Try it out
+Imagine you want to send a secret message or file to someone or to a group of members such as a DAO. With zkVaults, you can encrypt the data on the frontend with a unique generated key and this key gets stored on 3 nodes on an MPC blockchain (partisiablockchain.com) or any Advanced MPC blockchain. The other members can then request the secret key, and decrypt the data that was stored publically but encrypted.
 
-If you wish to try out a live demo of this example code, each contract has been deployed to the 
-[PBC testnet](https://partisiablockchain.gitlab.io/documentation/smart-contracts/access-and-use-the-testnet.html) and the [Ethereum 
-Goerli testnet](https://goerli.etherscan.io/)
+---
 
-[This page](https://partisiablockchain.gitlab.io/documentation/smart-contracts/pbc-as-second-layer/live-example-of-pbc-as-second-layer.html)
-describes how to run the example.
+### **Objective**: 
+Securely share a secret among a predefined set of users/wallets, authorized via their wallet addresses, using zero-knowledge proofs to maintain privacy.
+
+### **Components**:
+
+- **Smart Contract or Decentralized Storage:** For Storing The resourceID, encryptedSecret, and its ACLs (Access Control Lists). These values can be stored publicly leveraging the “no single point of failure” nature of this technology but at the same time ensuring privacy of the stored secret limiting it to a set of authorized users
+- **zkVaults module:** For generating a new share, granting access of a share and modifying ACLs of an existing share. This should be implemented through programmable MPC actions leveraging computational rules done by multiple on-chain nodes (zkSmartContract)
+
+### **Use Cases:**
+
+- End-to-end Encrypted on-chain messaging
+- Decentralized file-sharing (sharing the decryption key of an encrypted file stored on IPFS)
+- Sharing information privately between DAO members
+- Token-Gating without relying on a server to “Gate” the resource or the key to the resource
+- Many more…
 
 ## How to deploy
 
@@ -50,7 +61,7 @@ From working directory `./`.
     ```shell
     cargo partisia-contract build --release
     ```
-    The outputs are located at `./target/wasm32-unknown-unknown/release/private_voting.{abi, zkwa}`.
+    The outputs are located at `./target/wasm32-unknown-unknown/release/zk_vaults.{abi, zkwa}`.
 2. [Deploy PBC contract](https://partisiablockchain.gitlab.io/documentation/smart-contracts/compile-and-deploy-contracts.html) on 
    [PBC testnet](https://browser.testnet.partisiablockchain.com/contracts/deploy). 
 3. Copy the address of the deployed contract and paste it into the `PBC_CONTRACT_ADDRESS` field in 
@@ -61,7 +72,6 @@ From working directory `./`.
 
 ### Deploy solidity contract
 
-From working directory `./public-voting`.
 
 1. Fill in the `GOERLI_API_URL` and `GOERLI_PRIVATE_KEY` fields in the `.env` file.
 2. In the `hardhat.config.js` file, uncomment the lines
@@ -93,12 +103,12 @@ interact with the contract on goerli.etherscan.io.
 
 ## Helper scripts
 
-The `./public-voting/scripts` directory contains several scripts to help with deploying the solidity
+The `./scripts` directory contains several scripts to help with deploying the solidity
 contract to Ethereum.
 
 ### deploy.js
 
-This script help with deploying the PublicVoting.sol contract, using the hardhat runtime.
+This script help with deploying the lib.sol contract, using the hardhat runtime.
 
 To work correctly, it expects that the environment variables `GOERLI_API_URL`, `GOERLI_PRIVATE_KEY`, 
 `PBC_CONTRACT_ADDRESS`, `ZK_NODE_PUBLIC_KEY_1`, `ZK_NODE_PUBLIC_KEY_2`, `ZK_NODE_PUBLIC_KEY_3`, and 
