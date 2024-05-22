@@ -2,128 +2,151 @@
 extern crate pbc_contract_codegen;
 extern crate pbc_contract_common;
 
-use std::fmt::Write;
-
 use create_type_spec_derive::CreateTypeSpec;
+use pbc_contract_common::address::Address;
 use pbc_contract_common::context::ContractContext;
 use pbc_contract_common::events::EventGroup;
-use pbc_contract_common::signature::Signature;
-use pbc_contract_common::zk::AttestationId;
-use pbc_contract_common::zk::{CalculationStatus, SecretVarId, ZkInputDef, ZkState, ZkStateChange, SecretVarMetadata};
-use pbc_traits::WriteRPC;
-use pbc_zk::{Sbi1, SecretBinary};
+use pbc_contract_common::zk::{CalculationStatus, SecretVarId, ZkInputDef, ZkState, ZkStateChange};
 use read_write_state_derive::ReadWriteState;
+use pbc_zk::{Sbi32, load_sbi, secret_variable_ids, zk_compute};
 
-#[derive(ReadWriteState, CreateTypeSpec, Clone)]
-struct Vault {
-    data_hash: String,
-    members: Vec<Address>;
-}
-
-
+/// Secret variable metadata. Indicates if the variable is a vote or the number of counted yes votes
 #[derive(ReadWriteState, Debug)]
 #[repr(C)]
 struct SecretVarMetadata {
-    data_hash: String,
+    _id: u128,
+    _shares: Vec<u128>,
 }
 
+#[derive(ReadWriteState, CreateTypeSpec, Clone)]
+struct AccessToken {
+    issued_at: Date,
+    accesstoken: String,
+}
+
+/// This contract's state
 #[state]
 struct ContractState {
-    vaults: HashMap<Address, Vault>, // Map vaults to owners
+    _accesstoken: Option<AccessToken>,
+    _vaults: SortedVecSet<u128, SortedVecSet<Address, Bool>>,
 }
 
-/// Method for initializing the contract's state.
+
 #[init(zk = true)]
-fn initialize(_ctx: ContractContext, _zk_state: ZkState<SecretVarMetadata>) -> ContractState {
+fn initialize( ctx: ContractContext, _zk_state: ZkState<SecretVarMetadata> ) -> ContractState {
     ContractState {
-        vaults: HashMap::new(), // Initialize with an empty HashMap
+        _accesstoken: None,
+        _vaults: SortedVecSet::new()
     }
 }
 
-
-/// Creates new zkVault and returns the encryption_key Securly via MPC
+/// creates new vault
 #[zk_on_secret_input(shortname = 0x40)]
-pub fn new_vault(
-    context: ContractContext,
+fn new_zk_vault(
+    ctx: ContractContext,
     state: ContractState,
-    zk_state: ZkState<SecretVarType>,
-    data_hash: String,
-    members: Vec<String>
+    zk_state: ZkState<SecretVarMetadata>,
+    _id: u128,
+    _k: String,
+    _members: Vec<Address>,
 ) -> (
     ContractState,
     Vec<EventGroup>,
-    ZkInputDef<SecretVarType, Sbi32>,
+    ZkInputDef<SecretVarMetadata, Sbi32>,
 ) {
-
     // checks for members array
-    assert_ne!(members.len(), 0, "Cannot create a vault without members");
-    let mut address_set = SortedVecSet::new();
-    for mp_address in members.iter() {
-      address_set.insert(*mp_address);
+    assert_ne!(_members.len(), 0, "Cannot create a vault without members");
+    let mut _acls = SortedVecSet::new();
+    for usr_address in _members.iter() {
+        _acls.insert(&usr_address, true)
     }
-    assert_eq!(members.len(), address_set.len(), "Duplicate MP address in input");
+    assert_eq!(_members.len(), _acls.len(), "Duplicate address in input");
 
-    // add vault to state
-    state.vaults.insert(context.address, new Vault(data_hash, members));
+    // split key into shares using sss
+    let mut s = create_shares(&_k, 4, 3).unwrap();
+    state._vaults.insert(_id,_acls)
 
-    let input_def = ZkInputDef::with_metadata(SecretVarType {});
-    (state, vec![], input_def)
+    (
+        state, 
+        vec![], 
+        ZkInputDef::with_metadata(SecretVarMetadata {
+            _id,
+            _shares: s,
+        })
+    )
 }
+
 
 /// Initializes MPC computation request for the vault.
 #[action(shortname = 0x01, zk = true)]
-fn request_access(
-    context: ContractContext,
-    mut state: ContractState,
-    data_hash: String,
-    members: Vec<String>
+fn zk_vault_get_keys(
+    _context: ContractContext,
+    state: ContractState,
+    zk_state: ZkState<SecretVarMetadata>,
+    _id: u128,
+    _sig: String
 ) -> (ContractState, Vec<EventGroup>, Vec<ZkStateChange>) {
-    // Return the state unmodified, and no events. Request that the computation begins and define
-    // metadata to be attached to the secret output variable.
+    assert_eq!(
+        zk_state.calculation_state,
+        CalculationStatus::Waiting,
+        "BUSY",
+    );
+    assert_eq!(
+        state._acls.get(&id).clone().get(ctx.sender),
+        true,
+        "401_UNAUTHORIZED",
+    );
+
     (
         state,
         vec![],
-        vec![ZkStateChange::start_computation(vec![])],
+        vec![ZkStateChange::start_computation(vec![SecretVarMetadata { _id }])],
     )
 }
 
 #[zk_on_compute_complete]
-fn validate_signature(
-    _context: ContractContext,
-    mut state: ContractState,
-    zk_state: ZkState<SecretVarMetadata>,
-    opened_variables: Vec<SecretVarId>,
+fn on_authorized(
+    _ctx: ContractContext,
+    state: ContractState,
+    _zk_state: ZkState<SecretVarMetadata>,
+    output_variables: Vec<SecretVarId>,
 ) -> (ContractState, Vec<EventGroup>, Vec<ZkStateChange>) {
+
+
+
+    let _sv = load_sbi::<Sbi128>(output_variables[0])
     
-    let mut output: Vec<String> = vec![];
-    data_hash
-        .rpc_write_to(&mut output)
-        .expect("Unable to serialize vote_id");
-    output
-    
+
+    let mut data_to_attest: Vec<u8> = vec![];
+    _sv._shares[0]
+        .rpc_write_to(&mut data_to_attest)
+        .expect("Unable to serialize share 0");
+    _sv._shares[1]
+        .rpc_write_to(&mut data_to_attest)
+        .expect("Unable to serialize share 0");
+    _sv._shares[3]
+        .rpc_write_to(&mut data_to_attest)
+        .expect("Unable to serialize share 0");
+    data_to_attest
+
     (
         state,
         vec![],
         vec![ZkStateChange::Attest {
-            data_to_attest: output,
+            data_to_attest,
         }],
     )
 }
 
-/// Automatically called once all nodes have signed the data we requested.
-///
-/// Get the signatures for the attestation, formats them for EVM, and adds as proof on the result.
+
 #[zk_on_attestation_complete]
-fn on_validate_success(
+fn save_attestation_on_result_and_start_next_vote(
     _context: ContractContext,
     mut state: ContractState,
     zk_state: ZkState<SecretVarMetadata>,
     attestation_id: AttestationId,
 ) -> (ContractState, Vec<EventGroup>, Vec<ZkStateChange>) {
 
-    // The signatures provided by the computation nodes can be found on the data attestation object
-    // in the zk state. Find the attestation that has the same id as the one provided in the
-    // arguments.
     let attestation = zk_state
         .data_attestations
         .iter()
@@ -132,15 +155,25 @@ fn on_validate_success(
 
     // Parse the signatures into a text format that can be used in an Eth transaction without
     // further data conversions. The format is an array of the signatures in hex encoding.
-    let encryption_key = format! {"[{}]", attestation
+    let proof_of_result = format! {"[{}]", attestation
     .signatures
     .iter()
     .map(as_evm_string)
     .collect::<Vec<String>>()
     .join(", ")};
 
-    
+    // Save the proof on the result object for convenient retrieval.
+    result.proof = Some(proof_of_result);
+    (
+        state,
+        vec![],
+        vec![],
+    )
 }
+
+
+
+
 
 
 /// Encode a [`Signature`] as a hex-string representation of a signature that can be parsed by the
