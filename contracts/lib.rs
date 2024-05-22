@@ -14,15 +14,22 @@ use pbc_traits::WriteRPC;
 use pbc_zk::{Sbi1, SecretBinary};
 use read_write_state_derive::ReadWriteState;
 
-/// Secret variable metadata.
-#[derive(ReadWriteState, ReadWriteRPC, Debug)]
-#[repr(C)]
-pub struct SecretVarType {}
+#[derive(ReadWriteState, CreateTypeSpec, Clone)]
+struct Vault {
+    data_hash: String,
+    members: Vec<Address>;
+}
 
-/// Structure representing the open state for the private voting contract.
+
+#[derive(ReadWriteState, Debug)]
+#[repr(C)]
+struct SecretVarMetadata {
+    data_hash: String,
+}
+
 #[state]
 struct ContractState {
-    vaults: HashMap<String, Vec<String>>, // Map vaults to members
+    vaults: HashMap<Address, Vault>, // Map vaults to owners
 }
 
 /// Method for initializing the contract's state.
@@ -57,7 +64,7 @@ pub fn new_vault(
     assert_eq!(members.len(), address_set.len(), "Duplicate MP address in input");
 
     // add vault to state
-    state.vaults.insert(data_hash, members);
+    state.vaults.insert(context.address, new Vault(data_hash, members));
 
     let input_def = ZkInputDef::with_metadata(SecretVarType {});
     (state, vec![], input_def)
@@ -67,8 +74,7 @@ pub fn new_vault(
 #[action(shortname = 0x01, zk = true)]
 fn request_access(
     context: ContractContext,
-    state: ContractState,
-    zk_state: ZkState<SecretVarType>,
+    mut state: ContractState,
     data_hash: String,
     members: Vec<String>
 ) -> (ContractState, Vec<EventGroup>, Vec<ZkStateChange>) {
@@ -81,10 +87,6 @@ fn request_access(
     )
 }
 
-/// Automatically called when the computation is completed
-///
-/// Once the result has been computed we request that the Zk nodes attest the result (i.e sign it)
-/// and save it to this contracts open state.
 #[zk_on_compute_complete]
 fn validate_signature(
     _context: ContractContext,
