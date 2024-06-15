@@ -15,7 +15,7 @@ Securely share a secret among a predefined set of users/wallets, authorized via 
 ### **Components**:
 
 - **Smart Contract or Decentralized Storage:** For Storing The resourceID, encryptedSecret, and its ACLs (Access Control Lists). These values can be stored publicly leveraging the “no single point of failure” nature of this technology but at the same time ensuring privacy of the stored secret limiting it to a set of authorized users
-- **zkVaults module:** For generating a new share, granting access of a share and modifying ACLs of an existing share. This should be implemented through programmable MPC actions leveraging computational rules done by multiple on-chain nodes (zkSmartContract)
+- **zkVaults module:** For generating a new vault, granting access of a vault to users in its ACLs. This should be implemented through programmable MPC actions leveraging computational rules done by multiple on-chain nodes (zkSmartContract)
 
 ### **Use Cases:**
 
@@ -24,6 +24,70 @@ Securely share a secret among a predefined set of users/wallets, authorized via 
 - Sharing information privately between DAO members
 - Token-Gating without relying on a server to “Gate” the resource or the key to the resource
 - Many more…
+
+## Documentation
+
+### Key Functions
+
+- Initialization (initialize):
+   - Sets up the contract with the creator as the owner.
+   - Initializes an empty list of vaults.
+
+- Creating a Vault (create_vault):
+   - A user (e.g., user1) can create a vault by providing a secret key, their address (owner), and a list of addresses that can access the vault (access control list or ACL).
+   - The function returns an index for the newly created vault (vault_index) and an index for the secret key (secret_index).
+
+- Reading a Vault (read_vault):
+   - Another user (e.g., user2) can read the vault's secret key by providing the vault_index, secret_index, and a fresh RSA public key.
+   - The function checks if the user is authorized to access the vault.
+   - If authorized, it retrieves the secret key, encrypts it with the provided RSA public key, and returns the encrypted key.
+   - The encrypted key can then be decrypted on the frontend using the corresponding RSA private key, ensuring the secret remains safe during transmission.
+
+### Mock Frontent Sample Interaction 
+```js
+import init, { initialize, create_vault, read_vault } from 'zk_vaults';
+import NodeRSA from 'node-rsa';
+
+(async () => {
+  // Initialize the Wasm module
+  await init();
+
+  // Generate RSA keys
+  const key = new NodeRSA({ b: 2048 });
+  const publicKey = key.exportKey('public');
+  const privateKey = key.exportKey('private');
+
+  console.log('Public Key:', publicKey);
+  console.log('Private Key:', privateKey);
+
+  // Contract context and addresses (replace with actual values)
+  const context = { sender: '0xSenderAddress' };
+  const owner = '0xOwnerAddress';
+  const acls = ['0xAclAddress1', '0xAclAddress2'];
+  const secretKey = 123456789n;
+
+  // Initialize the contract
+  const contractState = initialize(context, {});
+
+  // Create a vault
+  const { state, def } = create_vault(context, contractState, {}, secretKey, owner, acls);
+  const vaultIndex = state.vaults.length - 1;
+  const secretIndex = def.metadata;
+
+  console.log('Vault Index:', vaultIndex);
+  console.log('Secret Index:', secretIndex);
+
+  // Read the vault
+  const encryptedData = read_vault(context, state, {}, vaultIndex, secretIndex, publicKey);
+
+  console.log('Encrypted Data:', encryptedData);
+
+  // Decrypt the message
+  const decryptedMessage = key.decrypt(encryptedData, 'utf8');
+
+  console.log('Decrypted Message:', decryptedMessage);
+})();
+```
 
 ## How to deploy
 
@@ -49,9 +113,6 @@ To compile and deploy the solidity contract you must have
 To make the deployment configuration available for the deployment scripts, create a `.env` file in 
 the `./` directory, using the following template.
 
-```text
-
-```
 
 ### Build and deploy PBC private smart contract
 

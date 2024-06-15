@@ -1,205 +1,182 @@
-#[macro_use]
-extern crate pbc_contract_codegen;
-extern crate pbc_contract_common;
+/*!
+ * @project zk_vaults
+ * @file lib.rs
+ * @author 
+ *      @Jeanclaudeaoun <jc@idsign.com | jeanclaude.aoun@hotmail.com>
+ *      idSign Inc.
+ * 
+ * @brief 
+ *      This Rust library implements a secure vault system on the Partisia Blockchain 
+ *      using zero-knowledge, MPC and encryption. It allows users to create 
+ *      and manage vaults, ensuring that secret keys can only be accessed by 
+ *      authorized users and are securely transmitted using RSA encryption.
+ * 
+ * @license
+ *      BSD-1
+ *      "../LICENSE.md"
+ */
 
-use create_type_spec_derive::CreateTypeSpec;
-use pbc_contract_common::address::Address;
-use pbc_contract_common::context::ContractContext;
-use pbc_contract_common::events::EventGroup;
-use pbc_contract_common::zk::{CalculationStatus, SecretVarId, ZkInputDef, ZkState, ZkStateChange};
-use read_write_state_derive::ReadWriteState;
-use pbc_zk::{Sbi32, load_sbi, secret_variable_ids, zk_compute};
-
-/// Secret variable metadata. Indicates if the variable is a vote or the number of counted yes votes
-#[derive(ReadWriteState, Debug)]
-#[repr(C)]
-struct SecretVarMetadata {
-    _id: u128,
-    _shares: Vec<u128>,
-}
-
-#[derive(ReadWriteState, CreateTypeSpec, Clone)]
-struct AccessToken {
-    issued_at: Date,
-    accesstoken: String,
-}
-
-/// This contract's state
-#[state]
-struct ContractState {
-    _accesstoken: Option<AccessToken>,
-    _vaults: SortedVecSet<u128, SortedVecSet<Address, Bool>>,
-}
-
-
-#[init(zk = true)]
-fn initialize( ctx: ContractContext, _zk_state: ZkState<SecretVarMetadata> ) -> ContractState {
-    ContractState {
-        _accesstoken: None,
-        _vaults: SortedVecSet::new()
-    }
-}
-
-/// creates new vault
-#[zk_on_secret_input(shortname = 0x40)]
-fn new_zk_vault(
-    ctx: ContractContext,
-    state: ContractState,
-    zk_state: ZkState<SecretVarMetadata>,
-    _id: u128,
-    _k: String,
-    _members: Vec<Address>,
-) -> (
-    ContractState,
-    Vec<EventGroup>,
-    ZkInputDef<SecretVarMetadata, Sbi32>,
-) {
-    // checks for members array
-    assert_ne!(_members.len(), 0, "Cannot create a vault without members");
-    let mut _acls = SortedVecSet::new();
-    for usr_address in _members.iter() {
-        _acls.insert(&usr_address, true)
-    }
-    assert_eq!(_members.len(), _acls.len(), "Duplicate address in input");
-
-    // split key into shares using sss
-    let mut s = create_shares(&_k, 4, 3).unwrap();
-    state._vaults.insert(_id,_acls)
-
-    (
-        state, 
-        vec![], 
-        ZkInputDef::with_metadata(SecretVarMetadata {
-            _id,
-            _shares: s,
-        })
-    )
-}
-
-
-/// Initializes MPC computation request for the vault.
-#[action(shortname = 0x01, zk = true)]
-fn zk_vault_get_keys(
-    _context: ContractContext,
-    state: ContractState,
-    zk_state: ZkState<SecretVarMetadata>,
-    _id: u128,
-    _sig: String
-) -> (ContractState, Vec<EventGroup>, Vec<ZkStateChange>) {
-    assert_eq!(
-        zk_state.calculation_state,
-        CalculationStatus::Waiting,
-        "BUSY",
-    );
-    assert_eq!(
-        state._acls.get(&id).clone().get(ctx.sender),
-        true,
-        "401_UNAUTHORIZED",
-    );
-
-    (
-        state,
-        vec![],
-        vec![ZkStateChange::start_computation(vec![SecretVarMetadata { _id }])],
-    )
-}
-
-#[zk_on_compute_complete]
-fn on_authorized(
-    _ctx: ContractContext,
-    state: ContractState,
-    _zk_state: ZkState<SecretVarMetadata>,
-    output_variables: Vec<SecretVarId>,
-) -> (ContractState, Vec<EventGroup>, Vec<ZkStateChange>) {
-
-
-
-    let _sv = load_sbi::<Sbi128>(output_variables[0])
-    
-
-    let mut data_to_attest: Vec<u8> = vec![];
-    _sv._shares[0]
-        .rpc_write_to(&mut data_to_attest)
-        .expect("Unable to serialize share 0");
-    _sv._shares[1]
-        .rpc_write_to(&mut data_to_attest)
-        .expect("Unable to serialize share 0");
-    _sv._shares[3]
-        .rpc_write_to(&mut data_to_attest)
-        .expect("Unable to serialize share 0");
-    data_to_attest
-
-    (
-        state,
-        vec![],
-        vec![ZkStateChange::Attest {
-            data_to_attest,
-        }],
-    )
-}
-
-
-#[zk_on_attestation_complete]
-fn save_attestation_on_result_and_start_next_vote(
-    _context: ContractContext,
-    mut state: ContractState,
-    zk_state: ZkState<SecretVarMetadata>,
-    attestation_id: AttestationId,
-) -> (ContractState, Vec<EventGroup>, Vec<ZkStateChange>) {
-
-    let attestation = zk_state
-        .data_attestations
-        .iter()
-        .find(|a| a.attestation_id == attestation_id)
-        .unwrap();
-
-    // Parse the signatures into a text format that can be used in an Eth transaction without
-    // further data conversions. The format is an array of the signatures in hex encoding.
-    let proof_of_result = format! {"[{}]", attestation
-    .signatures
-    .iter()
-    .map(as_evm_string)
-    .collect::<Vec<String>>()
-    .join(", ")};
-
-    // Save the proof on the result object for convenient retrieval.
-    result.proof = Some(proof_of_result);
-    (
-        state,
-        vec![],
-        vec![],
-    )
-}
-
-
-
-
-
-
-/// Encode a [`Signature`] as a hex-string representation of a signature that can be parsed by the
-/// EVM.
-///
-/// To make the signature parseable by the EVM, add 27 to the recovery id. The output should be 64
-/// chars of the encoded r value, followed by 64 chars of the encoded s value and finally 2 chars
-/// of the encoded recovery id. The entire string is prepended with "0x".
-fn as_evm_string(signature: &Signature) -> String {
-    // Ethereum expects that the recovery id has value 0x1B or 0x1C, but the algorithm used by PBC
-    // outputs 0x00 or 0x01. Add 27 to the recovery id to ensure it has an expected value, and
-    // format as a hexidecimal string.
-    let recovery_id = signature.recovery_id + 27;
-    let recovery_id = format!("{recovery_id:02x}");
-    // The r value is 32 bytes, i.e. a string of 64 characters when represented in hexidecimal.
-    let mut r = String::with_capacity(64);
-    // For each byte in the r value format is a hexidecimal string of length 2 to ensure zero
-    // padding, and write it to the output string defined above.
-    for byte in signature.value_r {
-        write!(r, "{byte:02x}").unwrap();
-    }
-    // Do the same for the s value.
-    let mut s = String::with_capacity(64);
-    for byte in signature.value_s {
-        write!(s, "{byte:02x}").unwrap();
-    }
-    // Combine the three values into a single string, prepended with "0x".
-    format!("0x{r}{s}{recovery_id}")
-}
+ #![allow(unused_variables)]
+ #![allow(private_interfaces)]
+ 
+ #[macro_use]
+ extern crate pbc_contract_codegen;
+ extern crate pbc_contract_common;
+ extern crate pbc_lib;
+ 
+ use rsa::{Pkcs1v15Encrypt, RsaPublicKey};
+ use create_type_spec_derive::CreateTypeSpec;
+ use pbc_contract_common::address::Address;
+ use pbc_contract_common::context::ContractContext;
+ use pbc_contract_common::events::EventGroup;
+ use pbc_contract_common::zk::{SecretVarId, ZkInputDef, ZkState};
+ use read_write_state_derive::ReadWriteState;
+ 
+ /// The `Vault` struct in Rust represents a secure storage container with an owner and a list of
+ /// authorized access addresses.
+ /// 
+ /// Properties:
+ /// 
+ /// * `owner`: The `owner` property in the `Vault` struct represents the address of the owner of the
+ /// Vault. This address is used to identify the individual or entity that has control over the Vault and
+ /// its contents.
+ /// * `acls`: The `acls` property in the `Vault` struct represents an array of addresses that can access
+ /// the Vault secret key. This allows multiple addresses to be granted access to the Vault's secret key
+ /// for secure management and sharing of sensitive information.
+ #[derive(Clone, ReadWriteState, CreateTypeSpec)]
+ struct Vault {
+     /// Owner of the Vault
+     owner: Address,
+     /// Array of addresses that can access the Vault secret key
+     acls: Vec<Address>,
+ }
+ 
+ /// Represents a contract state with an owner address and a vector of
+ /// vaults.
+ /// 
+ /// Properties:
+ /// 
+ /// * `owner`: The `owner` property in the `ContractState` struct represents the address of the owner of
+ /// the contract. This address is typically used to identify the entity that has special privileges or
+ /// control over the contract's functionality and data.
+ /// * `vaults`: The `vaults` property in the `ContractState` struct is a vector of `Vault` structs. It
+ /// represents a collection of vaults associated with the contract. Each `Vault` struct likely contains
+ /// information about a specific vault, such as its ID, balance, owner, or any other relevant
+ #[state]
+ struct ContractState {
+     /// Owner of the contract
+     owner: Address,
+     /// map vault_id -> Vault
+     vaults: Vec<Vault>,
+ }
+ 
+ /// The `initialize` function initializes a contract and sets the owner to the sender.
+ /// 
+ /// Arguments:
+ /// 
+ /// * `context`: The `context` parameter in the `initialize` function represents the context in which
+ /// the contract is being initialized. It typically includes information such as the sender of the
+ /// transaction, the current block number, and other relevant details about the transaction.
+ /// * `zk_state`: The `zk_state` parameter in the `initialize` function is of type `ZkState<u32>`. This
+ /// indicates that it is a zero-knowledge state variable that stores an unsigned 32-bit integer value.
+ /// It can be used to securely store and manage sensitive data while preserving privacy and
+ /// confidentiality
+ /// 
+ /// Returns:
+ /// 
+ /// A `ContractState` struct is being returned, with the `owner` field set to the sender of the context
+ /// and the `vaults` field initialized as an empty vector.
+ #[init(zk = true)]
+ fn initialize(context: ContractContext, zk_state: ZkState<u32>) -> ContractState {
+     ContractState {
+         owner: context.sender,
+         vaults: Vec::new(),
+     }
+ }
+ 
+ /// The function `create_vault` creates a new vault with specified key, owner, and access control list,
+ /// and returns the updated contract state, event groups, and zk input definition.
+ /// 
+ /// Arguments:
+ ///
+ /// * `key`: The `key` parameter in the `create_vault` function is of type `i128` and represents a
+ /// cryptographic key used for securing the vault.
+ /// * `owner`: The `owner` parameter in the `create_vault` function represents the address of the owner
+ /// of the vault being created. This address will have special permissions and control over the vault's
+ /// operations and contents.
+ /// * `acls`: The `acls` parameter in the `create_vault` function represents a vector of addresses.
+ /// These addresses are used to specify the access control list for the vault being created. The `owner`
+ /// address has full control over the vault, while the addresses in the `acls` vector may have
+ #[zk_on_secret_input(shortname = 0x30)]
+ fn create_vault(
+     context: ContractContext,
+     mut state: ContractState,
+     zk_state: ZkState<i32>,
+     key: i128,
+     owner: Address,
+     acls: Vec<Address>,
+ ) -> (
+     ContractState,
+     Vec<EventGroup>,
+     ZkInputDef<i128>,
+ ) {
+ 
+     let def = ZkInputDef {
+         seal: false,
+         expected_bit_lengths: vec![10, 10],
+         metadata: key,
+     };
+ 
+     state
+     .vaults
+     .push(Vault {owner,acls});
+ 
+     (state, vec![], def)
+ }
+ 
+ /// The `read_vault` function in Rust reads a vault using zero-knowledge proof and returns the key encrypted using RSA.
+ /// 
+ /// Arguments:
+ /// 
+ /// * `vault_index`: The `vault_index` parameter is an `i32` value representing the index of the vault
+ /// within the `state` object that you want to access.
+ /// * `key_index`: The `key_index` parameter in the `read_vault` function is of type `SecretVarId`. It
+ /// is used to identify a specific secret variable within the `zk_state` (Zero-Knowledge State) data
+ /// structure. This variable is then retrieved from the `zk_state` using the `
+ /// * `pub_pem`: The `pub_pem` parameter in the `read_vault` function is of type `RsaPublicKey`. This
+ /// parameter represents the RSA public key used for encryption in the function.
+ pub fn read_vault(
+     context: ContractContext,
+     state: ContractState,
+     zk_state: ZkState<i128>,
+     vault_index: i32,
+     key_index: SecretVarId,
+     pub_pem: RsaPublicKey,
+ ) -> (
+     ContractState,
+     Vec<u8>,
+ ) {
+     // TODO: zk attest
+     let vault = state
+         .vaults[vault_index as usize]
+         .acls
+         .iter()
+         .find(|x| **x == context.sender);
+ 
+     let vault: &Address = match vault {
+         Some(vault) => vault,
+         None => panic!("404 UNAUTHORIZED: {:?} is not authorized to access this vault", context.sender),
+     };
+ 
+     let variable = zk_state.get_variable(key_index).unwrap();
+     let mut buffer = [0u8; 16];
+     buffer.copy_from_slice(variable.data.as_ref().unwrap().as_slice());
+     let key = <i128>::from_le_bytes(buffer).to_string();
+ 
+     let data = key.as_bytes();
+     let mut rng = rand::thread_rng();
+     let bits = 2048;
+     let enc_data = pub_pem.encrypt(&mut rng, Pkcs1v15Encrypt, &data[..]).expect("failed to encrypt");
+ 
+     (state, enc_data)
+ }
