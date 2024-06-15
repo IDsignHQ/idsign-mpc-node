@@ -25,6 +25,7 @@
  extern crate pbc_lib;
  
  use rsa::{Pkcs1v15Encrypt, RsaPublicKey};
+ use rand::thread_rng;
  use create_type_spec_derive::CreateTypeSpec;
  use pbc_contract_common::address::Address;
  use pbc_contract_common::context::ContractContext;
@@ -174,7 +175,7 @@
      let key = <i128>::from_le_bytes(buffer).to_string();
  
      let data = key.as_bytes();
-     let mut rng = rand::thread_rng();
+     let mut rng = thread_rng();
      let bits = 2048;
      let enc_data = pub_pem.encrypt(&mut rng, Pkcs1v15Encrypt, &data[..]).expect("failed to encrypt");
  
