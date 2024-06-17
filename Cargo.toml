@@ -32,4 +32,3 @@ pbc_zk = { git = "https://git@gitlab.com/partisiablockchain/language/contract-sd
 rsa = "0.9.6"
 rand = "0.8.5"
 getrandom = { version = "0.2", features = ["js"] }
-base64 = "0.22.1"
