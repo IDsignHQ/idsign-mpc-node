@@ -26,16 +26,18 @@
 
  use pbc_zk::Sbi32;
  use read_write_rpc_derive::{ReadRPC, WriteRPC};
- use rsa::{Pkcs1v15Encrypt, RsaPublicKey};
- use rand::thread_rng;
+
  use create_type_spec_derive::CreateTypeSpec;
  use pbc_contract_common::address::Address;
  use pbc_contract_common::context::ContractContext;
  use pbc_contract_common::events::EventGroup;
  use pbc_contract_common::zk::{SecretVarId, ZkInputDef, ZkState};
  use read_write_state_derive::ReadWriteState;
- use std::str::FromStr;
- use base64::{encode, decode};
+
+use rsa::{RsaPublicKey, Pkcs1v15Encrypt, PaddingScheme};
+use rand::rngs::OsRng;
+use std::str::FromStr;
+use base64::{encode, decode};
 
  /// Secret variable metadata. Contains unique ID of the bidder.
 #[derive(ReadWriteState, ReadRPC, WriteRPC, Debug)]
@@ -161,35 +163,32 @@ struct SecretVarMetadata {
     zk_state: ZkState<SecretVarMetadata>,
     vault_index: u32,
     key_index: SecretVarId,
-    pub_pem_str: String,
+    pub_pem: RsaPublicKey,
 ) -> (
     ContractState,
-    String,
+    Vec<u8>,
 ) {
     // TODO: zk attest
-    let vault = state
-        .vaults[vault_index as usize]
-        .acls
-        .iter()
-        .find(|x| **x == context.sender);
+   let vault = state
+       .vaults[vault_index as usize]
+       .acls
+       .iter()
+       .find(|x| **x == context.sender);
 
-    let vault: &Address = match vault {
-        Some(vault) => vault,
-        None => panic!("404 UNAUTHORIZED: {:?} is not authorized to access this vault", context.sender),
-    };
+   let vault: &Address = match vault {
+       Some(vault) => vault,
+       None => panic!("404 UNAUTHORIZED: {:?} is not authorized to access this vault", context.sender),
+   };
 
-    let sum_variable = zk_state.get_variable(key_index).unwrap();
-    let mut buffer = [0u8; 4];
-    buffer.copy_from_slice(sum_variable.data.as_ref().unwrap().as_slice());
-    let key = <u32>::from_le_bytes(buffer).to_string();
+   let sum_variable = zk_state.get_variable(key_index).unwrap();
+   let mut buffer = [0u8; 4];
+   buffer.copy_from_slice(sum_variable.data.as_ref().unwrap().as_slice());
+   let key = <u32>::from_le_bytes(buffer).to_string();
 
-    let data = key.as_bytes();
-    let mut rng = thread_rng();
-    let bits = 2048;
-    let enc_data = pub_pem.encrypt(&mut rng, Pkcs1v15Encrypt, &data[..]).expect("failed to encrypt");
-    
-    // Convert the encrypted data to a base64 string for easier handling
-    let enc_data_str = encode(&enc_data);
+   let data = key.as_bytes();
+   let mut rng = thread_rng();
+   let bits = 2048;
+   let enc_data = pub_pem.encrypt(&mut rng, Pkcs1v15Encrypt, &data[..]).expect("failed to encrypt");
 
-    (state, enc_data_str)
+   (state, enc_data)
 }
