@@ -26,18 +26,16 @@
 
  use pbc_zk::Sbi32;
  use read_write_rpc_derive::{ReadRPC, WriteRPC};
-
+ use rsa::{Pkcs1v15Encrypt, RsaPublicKey};
+ use rand::thread_rng;
  use create_type_spec_derive::CreateTypeSpec;
  use pbc_contract_common::address::Address;
  use pbc_contract_common::context::ContractContext;
  use pbc_contract_common::events::EventGroup;
  use pbc_contract_common::zk::{SecretVarId, ZkInputDef, ZkState};
  use read_write_state_derive::ReadWriteState;
-
-use rsa::{RsaPublicKey, Pkcs1v15Encrypt, PaddingScheme};
-use rand::rngs::OsRng;
-use std::str::FromStr;
-use base64::{encode, decode};
+ use std::str::FromStr;
+ use base64::{encode, decode};
 
  /// Secret variable metadata. Contains unique ID of the bidder.
 #[derive(ReadWriteState, ReadRPC, WriteRPC, Debug)]
@@ -186,9 +184,9 @@ struct SecretVarMetadata {
     let key = <u32>::from_le_bytes(buffer).to_string();
 
     let data = key.as_bytes();
-    let mut rng = OsRng;
-    let pub_pem = RsaPublicKey::from_pkcs1_pem(&pub_pem_str).expect("failed to parse public key");
-    let enc_data = pub_pem.encrypt(&mut rng, PaddingScheme::new_pkcs1v15_encrypt(), &data[..]).expect("failed to encrypt");
+    let mut rng = thread_rng();
+    let bits = 2048;
+    let enc_data = pub_pem.encrypt(&mut rng, Pkcs1v15Encrypt, &data[..]).expect("failed to encrypt");
     
     // Convert the encrypted data to a base64 string for easier handling
     let enc_data_str = encode(&enc_data);
