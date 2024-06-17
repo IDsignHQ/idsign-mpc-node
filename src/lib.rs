@@ -113,16 +113,16 @@
      context: ContractContext,
      mut state: ContractState,
      zk_state: ZkState<i32>,
-     key: i128,
+     key: i32,
      owner: Address,
      acls: Vec<Address>,
  ) -> (
      ContractState,
      Vec<EventGroup>,
-     ZkInputDef<i128>,
+     ZkInputDef<i32>,
  ) {
  
-     let def = ZkInputDef {
+     let def: ZkInputDef<i32> = ZkInputDef {
          seal: false,
          expected_bit_lengths: vec![10, 10],
          metadata: key,
@@ -149,35 +149,35 @@
  pub fn read_vault(
      context: ContractContext,
      state: ContractState,
-     zk_state: ZkState<i128>,
+     zk_state: ZkState<i32>,
      vault_index: i32,
      key_index: SecretVarId,
      pub_pem: RsaPublicKey,
  ) -> (
      ContractState,
-     Vec<u8>,
+     String,
  ) {
      // TODO: zk attest
-     let vault = state
-         .vaults[vault_index as usize]
-         .acls
-         .iter()
-         .find(|x| **x == context.sender);
+    let vault = state
+        .vaults[vault_index as usize]
+        .acls
+        .iter()
+        .find(|x| **x == context.sender);
  
-     let vault: &Address = match vault {
-         Some(vault) => vault,
-         None => panic!("404 UNAUTHORIZED: {:?} is not authorized to access this vault", context.sender),
-     };
+    let vault: &Address = match vault {
+        Some(vault) => vault,
+        None => panic!("404 UNAUTHORIZED: {:?} is not authorized to access this vault", context.sender),
+    };
+
+    let sum_variable = zk_state.get_variable(key_index).unwrap();
+    let mut buffer = [0u8; 4];
+    buffer.copy_from_slice(sum_variable.data.as_ref().unwrap().as_slice());
+    let key = <i32>::from_le_bytes(buffer).to_string();
  
-     let variable = zk_state.get_variable(key_index).unwrap();
-     let mut buffer = [0u8; 16];
-     buffer.copy_from_slice(variable.data.as_ref().unwrap().as_slice());
-     let key = <i128>::from_le_bytes(buffer).to_string();
- 
-     let data = key.as_bytes();
-     let mut rng = thread_rng();
-     let bits = 2048;
-     let enc_data = pub_pem.encrypt(&mut rng, Pkcs1v15Encrypt, &data[..]).expect("failed to encrypt");
- 
-     (state, enc_data)
+    let data = key.as_bytes();
+    let mut rng = thread_rng();
+    let bits = 2048;
+    let enc_data = pub_pem.encrypt(&mut rng, Pkcs1v15Encrypt, &data[..]).expect("failed to encrypt");
+
+    (state, enc_data.to_string())
  }
