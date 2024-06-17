@@ -23,7 +23,9 @@
  extern crate pbc_contract_codegen;
  extern crate pbc_contract_common;
  extern crate pbc_lib;
- 
+
+ use pbc_zk::Sbi32;
+ use read_write_rpc_derive::{ReadRPC, WriteRPC};
  use rsa::{Pkcs1v15Encrypt, RsaPublicKey};
  use rand::thread_rng;
  use create_type_spec_derive::CreateTypeSpec;
@@ -32,6 +34,13 @@
  use pbc_contract_common::events::EventGroup;
  use pbc_contract_common::zk::{SecretVarId, ZkInputDef, ZkState};
  use read_write_state_derive::ReadWriteState;
+
+ /// Secret variable metadata. Contains unique ID of the bidder.
+#[derive(ReadWriteState, ReadRPC, WriteRPC, Debug)]
+struct SecretVarMetadata {
+    key: u32,
+}
+
  
  /// The `Vault` struct in Rust represents a secure storage container with an owner and a list of
  /// authorized access addresses.
@@ -88,7 +97,7 @@
  /// A `ContractState` struct is being returned, with the `owner` field set to the sender of the context
  /// and the `vaults` field initialized as an empty vector.
  #[init(zk = true)]
- fn initialize(context: ContractContext, zk_state: ZkState<u32>) -> ContractState {
+ fn initialize(context: ContractContext, zk_state: ZkState<SecretVarMetadata>) -> ContractState {
      ContractState {
          owner: context.sender,
          vaults: Vec::new(),
@@ -112,34 +121,32 @@
  fn create_vault(
      context: ContractContext,
      mut state: ContractState,
-     zk_state: ZkState<i32>,
-     key: i32,
+     zk_state: ZkState<SecretVarMetadata>,
+     key: u32,
      owner: Address,
      acls: Vec<Address>,
- ) -> (
-     ContractState,
-     Vec<EventGroup>,
-     ZkInputDef<i32>,
- ) {
- 
-     let def: ZkInputDef<i32> = ZkInputDef {
-         seal: false,
-         expected_bit_lengths: vec![10, 10],
-         metadata: key,
-     };
+ ) -> (ContractState, Vec<EventGroup>, ZkInputDef<SecretVarMetadata, Sbi32>) {
  
      state
      .vaults
      .push(Vault {owner,acls});
+
+    let input_def = ZkInputDef::with_metadata(
+        None,
+        SecretVarMetadata {
+            key,
+        },
+    );
+
  
-     (state, vec![], def)
+     (state, vec![], input_def)
  }
  
  /// The `read_vault` function in Rust reads a vault using zero-knowledge proof and returns the key encrypted using RSA.
  /// 
  /// Arguments:
  /// 
- /// * `vault_index`: The `vault_index` parameter is an `i32` value representing the index of the vault
+ /// * `vault_index`: The `vault_index` parameter is an `u32` value representing the index of the vault
  /// within the `state` object that you want to access.
  /// * `key_index`: The `key_index` parameter in the `read_vault` function is of type `SecretVarId`. It
  /// is used to identify a specific secret variable within the `zk_state` (Zero-Knowledge State) data
@@ -149,13 +156,13 @@
  pub fn read_vault(
      context: ContractContext,
      state: ContractState,
-     zk_state: ZkState<i32>,
-     vault_index: i32,
+     zk_state: ZkState<SecretVarMetadata>,
+     vault_index: u32,
      key_index: SecretVarId,
      pub_pem: RsaPublicKey,
  ) -> (
      ContractState,
-     String,
+     Vec<u8>,
  ) {
      // TODO: zk attest
     let vault = state
@@ -172,12 +179,12 @@
     let sum_variable = zk_state.get_variable(key_index).unwrap();
     let mut buffer = [0u8; 4];
     buffer.copy_from_slice(sum_variable.data.as_ref().unwrap().as_slice());
-    let key = <i32>::from_le_bytes(buffer).to_string();
+    let key = <u32>::from_le_bytes(buffer).to_string();
  
     let data = key.as_bytes();
     let mut rng = thread_rng();
     let bits = 2048;
     let enc_data = pub_pem.encrypt(&mut rng, Pkcs1v15Encrypt, &data[..]).expect("failed to encrypt");
 
-    (state, enc_data.to_string())
+    (state, enc_data)
  }
