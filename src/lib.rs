@@ -24,19 +24,16 @@
  extern crate pbc_contract_common;
  extern crate pbc_lib;
 
- use pbc_zk::Sbi32;
- use read_write_rpc_derive::{ReadRPC, WriteRPC};
-
- use pbc_zk::Sbi32;
- use read_write_rpc_derive::{ReadRPC, WriteRPC};
- use rsa::{Pkcs1v15Encrypt, RsaPublicKey};
- use rand::thread_rng;
  use create_type_spec_derive::CreateTypeSpec;
  use pbc_contract_common::address::Address;
  use pbc_contract_common::context::ContractContext;
  use pbc_contract_common::events::EventGroup;
  use pbc_contract_common::zk::{SecretVarId, ZkInputDef, ZkState};
- use read_write_state_derive::ReadWriteState;
+ use pbc_zk::Sbi32;
+use read_write_state_derive::ReadWriteState;
+ use read_write_rpc_derive::{ReadRPC, WriteRPC};
+ use rsa::{Pkcs1v15Encrypt, RsaPublicKey};
+ use rand::thread_rng;
 
  /// Secret variable metadata. Contains unique ID of the bidder.
 #[derive(ReadWriteState, ReadRPC, WriteRPC, Debug)]
@@ -141,7 +138,7 @@ struct SecretVarMetadata {
         },
     );
 
- 
+
      (state, vec![], input_def)
  }
  
