@@ -25,22 +25,25 @@
  extern crate pbc_lib;
 
  use create_type_spec_derive::CreateTypeSpec;
- use pbc_contract_common::address::Address;
+ use num_bigint::BigUint;
+use pbc_contract_common::address::Address;
  use pbc_contract_common::context::ContractContext;
  use pbc_contract_common::events::EventGroup;
  use pbc_contract_common::zk::{SecretVarId, ZkInputDef, ZkState};
  use pbc_zk::Sbi32;
-use read_write_state_derive::ReadWriteState;
+ use read_write_state_derive::ReadWriteState;
  use read_write_rpc_derive::{ReadRPC, WriteRPC};
- use rsa::{Pkcs1v15Encrypt, RsaPublicKey};
- use rand::thread_rng;
 
  /// Secret variable metadata. Contains unique ID of the bidder.
 #[derive(ReadWriteState, ReadRPC, WriteRPC, Debug)]
 struct SecretVarMetadata {
     key: u32,
 }
-
+#[derive(ReadWriteState, CreateTypeSpec)]
+struct PublicKey {
+    n: Vec<u8>,  // modulus
+    e: Vec<u8>,  // public exponent
+}
  
  /// The `Vault` struct in Rust represents a secure storage container with an owner and a list of
  /// authorized access addresses.
@@ -159,32 +162,37 @@ struct SecretVarMetadata {
     zk_state: ZkState<SecretVarMetadata>,
     vault_index: u32,
     key_index: SecretVarId,
-    pub_pem: RsaPublicKey,
-) -> (
-    ContractState,
-    Vec<u8>,
-) {
-    // TODO: zk attest
-   let vault = state
-       .vaults[vault_index as usize]
-       .acls
-       .iter()
-       .find(|x| **x == context.sender);
+    public_key: PublicKey,
+) -> (ContractState, Vec<u8>) {
+    // Authorization check
+    let vault = &state.vaults[vault_index as usize];
+    if !vault.acls.contains(&context.sender) {
+        panic!("404 UNAUTHORIZED: {:?} is not authorized to access this vault", context.sender);
+    }
 
-   let vault: &Address = match vault {
-       Some(vault) => vault,
-       None => panic!("404 UNAUTHORIZED: {:?} is not authorized to access this vault", context.sender),
-   };
+    // Retrieve the key from zk_state
+    let sum_variable = zk_state.get_variable(key_index).unwrap();
+    let mut buffer = [0u8; 4];
+    buffer.copy_from_slice(sum_variable.data.as_ref().unwrap().as_slice());
+    let key = u32::from_le_bytes(buffer).to_string();
 
-   let sum_variable = zk_state.get_variable(key_index).unwrap();
-   let mut buffer = [0u8; 4];
-   buffer.copy_from_slice(sum_variable.data.as_ref().unwrap().as_slice());
-   let key = <u32>::from_le_bytes(buffer).to_string();
+    // Encrypt the key
+    let encrypted_data = encrypt_rsa(&key.as_bytes(), &public_key);
 
-   let data = key.as_bytes();
-   let mut rng = thread_rng();
-   let bits = 2048;
-   let enc_data = pub_pem.encrypt(&mut rng, Pkcs1v15Encrypt, &data[..]).expect("failed to encrypt");
+    (state, encrypted_data)
+}
 
-   (state, enc_data)
+fn encrypt_rsa(data: &[u8], public_key: &PublicKey) -> Vec<u8> {
+    // Convert public key components from big-endian byte arrays to BigUint
+    let n = BigUint::from_bytes_be(&public_key.n);
+    let e = BigUint::from_bytes_be(&public_key.e);
+
+    // Convert data to BigUint
+    let m = BigUint::from_bytes_be(data);
+
+    // Perform encryption: c = m^e mod n
+    let c = m.modpow(&e, &n);
+
+    // Convert result back to bytes
+    c.to_bytes_be()
 }
