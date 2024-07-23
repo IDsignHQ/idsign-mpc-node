@@ -9,6 +9,7 @@ abi = ["pbc_contract_common/abi", "pbc_contract_codegen/abi", "pbc_traits/abi", 
 
 [lib]
 crate-type = ['rlib', 'cdylib']
+path = 'partisia/lib.rs'
 
 [metadata.partisiablockchain]
 cargo-partisia = "4.128.0"
