@@ -3,5 +3,27 @@
   "version": "0.1.0",
   "description": "",
   "author": "idSign Inc.",
-  "license": "BSD-1"
+  "license": "BSD-1",
+  "scripts": {
+    "dev": "next dev -p 55000",
+    "build": "next build",
+    "start": "next start",
+    "lint": "next lint"
+  },
+  "dependencies": {
+    "next": "^14.2.5",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1"
+  },
+  "devDependencies": {
+		"@types/node": "^20.14.11",
+		"@types/react": "^18",
+		"@types/react-dom": "^18",
+		"eslint": "^8",
+		"eslint-config-next": "14.1.3",
+		"eslint-config-prettier": "^9.1.0",
+		"eslint-config-turbo": "^1.13.2",
+		"eslint-plugin-react": "^7.34.1",
+		"typescript": "^5.5.3"
+	}
 }
