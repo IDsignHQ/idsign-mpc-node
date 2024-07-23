@@ -1,14 +1,15 @@
 import { NextRequest } from 'next/server'
-import useENV from '../hooks/useENV'
 
 export async function GET(request: NextRequest) {
-	const { vercelEnv, vercelUrl, vercelRegion } = useENV()
 
-	return new Response(JSON.stringify({
-		environment: vercelEnv,
-		url: vercelUrl,
-		region: vercelRegion
-	}), {
+
+	const resp = {
+		status: 'OK',
+		node_id: process.env.NODE_ID || 'localhost',
+		vercel_url: process.env.VERCEL_URL || 'localhost'
+	}
+
+	return new Response(JSON.stringify(resp), {
 		status: 200,
 		headers: {
 			'Content-Type': 'application/json'
