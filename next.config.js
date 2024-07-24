@@ -1,7 +1,8 @@
 /** @type {import('next').NextConfig} */
   
 const nextConfig = {
-	reactStrictMode: true
+	reactStrictMode: true,
+	transpilePackages: ['@idsign/evm-contracts']
 }
 
 module.exports = nextConfig 
