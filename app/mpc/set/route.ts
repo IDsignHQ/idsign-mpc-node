@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { split } from 'shamirs-secret-sharing-ts'
-import CryptoJS from 'crypto-js'
+import { secp256k1 } from 'ethereum-cryptography/secp256k1'
+import { hexToBytes, bytesToHex } from 'ethereum-cryptography/utils'
 import { ethers } from 'ethers'
 import { kv } from '@vercel/kv'
 
@@ -46,23 +47,44 @@ export async function POST(request: Request) {
   
 	// Encrypt each share with the corresponding node's public key
 	const encryptedShares = await Promise.all(shares.map(async (share, index) => {
-		const [nodePublicKey, nodeUrl] = nodes[index]
+		const [nodeAddress, nodeUrl] = nodes[index]
 		return {
-			encryptedShare: encryptShare(JSON.stringify(share), nodePublicKey),
+			encryptedShare: await encryptShare(JSON.stringify(share), nodeAddress),
 			nodeUrl
 		}
 	}))
   
-	// // Store the encrypted shares (you'll need to implement this)
+	// Store the encrypted shares
 	await storeShares(key, encryptedShares)
   
 	return NextResponse.json({ success: 'true' })
 }
 
-function encryptShare(share: string, publicKey: string): string {
-	// Implement encryption using the node's public key
-	// This is a placeholder implementation using AES
-	return CryptoJS.AES.encrypt(share, publicKey).toString()
+async function encryptShare(share: string, publicKeyAddress: string): Promise<string> {
+	// Convert the Ethereum address to a public key point
+	const publicKeyPoint = secp256k1.ProjectivePoint.fromHex(publicKeyAddress.slice(2))
+  
+	// Generate an ephemeral key pair
+	const ephemeralPrivateKey = secp256k1.utils.randomPrivateKey()
+	const ephemeralPublicKey = secp256k1.getPublicKey(ephemeralPrivateKey)
+  
+	// Perform ECDH
+	const sharedSecret = secp256k1.getSharedSecret(ephemeralPrivateKey, publicKeyPoint.toRawBytes())
+  
+	// Use the shared secret to derive an AES key (you might want to use a proper KDF here)
+	const aesKey = sharedSecret.slice(0, 32)
+  
+	// Encrypt the share using AES-GCM
+	const iv = crypto.getRandomValues(new Uint8Array(12))
+	const encoder = new TextEncoder()
+	const encryptedData = await crypto.subtle.encrypt(
+		{ name: 'AES-GCM', iv: iv },
+		await crypto.subtle.importKey('raw', aesKey, { name: 'AES-GCM' }, false, ['encrypt']),
+		encoder.encode(share)
+	)
+  
+	// Combine the ephemeral public key, IV, and encrypted data
+	return bytesToHex(ephemeralPublicKey) + bytesToHex(iv) + bytesToHex(new Uint8Array(encryptedData))
 }
 
 async function storeShares(key: string, shares: { encryptedShare: string, nodeUrl: string }[]) {
