@@ -2,16 +2,40 @@ import { NextResponse } from 'next/server'
 import { split } from 'shamirs-secret-sharing-ts'
 import CryptoJS from 'crypto-js'
 import { ethers } from 'ethers'
-import { DAO__factory } from '@idsign/smart-contracts'
+import { kv } from '@vercel/kv'
 
-const DAO_ABI = DAO__factory.abi
-const DAO_ADDRESS = '0x564Be7B72e91d54E1617AFc6cAa8670986B4C440'
+const DAO_ABI = [{
+	'inputs': [],
+	'name': 'getNodes',
+	'outputs': [
+		{
+			'components': [
+				{
+					'internalType': 'address',
+					'name': 'publicKey',
+					'type': 'address'
+				},
+				{
+					'internalType': 'string',
+					'name': 'url',
+					'type': 'string'
+				}
+			],
+			'internalType': 'struct DAO.Node[]',
+			'name': '',
+			'type': 'tuple[]'
+		}
+	],
+	'stateMutability': 'view',
+	'type': 'function'
+}] as const
+const DAO_ADDRESS = '0x98BEceee36B6F7e8d26774C80430F411aF28B63c'
 
 export async function POST(request: Request) {
 	const { key, value } = await request.json()
   
 	// Connect to the network and DAO contract
-	const provider = new ethers.JsonRpcProvider()
+	const provider = new ethers.JsonRpcProvider('https://ethereum-sepolia-rpc.publicnode.com')
 	const daoContract = new ethers.Contract(DAO_ADDRESS, DAO_ABI, provider)
   
 	// Get the list of nodes from the DAO contract
@@ -24,15 +48,15 @@ export async function POST(request: Request) {
 	const encryptedShares = await Promise.all(shares.map(async (share, index) => {
 		const [nodePublicKey, nodeUrl] = nodes[index]
 		return {
-			encryptedShare: encryptShare(share, nodePublicKey),
+			encryptedShare: encryptShare(JSON.stringify(share), nodePublicKey),
 			nodeUrl
 		}
 	}))
   
-	// Store the encrypted shares (you'll need to implement this)
+	// // Store the encrypted shares (you'll need to implement this)
 	await storeShares(key, encryptedShares)
   
-	return NextResponse.json({ success: true })
+	return NextResponse.json({ success: 'true' })
 }
 
 function encryptShare(share: string, publicKey: string): string {
@@ -43,4 +67,5 @@ function encryptShare(share: string, publicKey: string): string {
 
 async function storeShares(key: string, shares: { encryptedShare: string, nodeUrl: string }[]) {
 	// Implement storage mechanism (e.g., database)
+	await kv.set(key, shares)
 }
