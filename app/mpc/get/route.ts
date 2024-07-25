@@ -11,7 +11,7 @@ export async function POST(request: Request) {
 		return NextResponse.json({ error: 'Key is required' }, { status: 400 })
 	}
   
-	// Retrieve encrypted shares (you'll need to implement this)
+	// Retrieve encrypted shares
 	const encryptedShares: any = await kv.get(key)
   
 	// Randomly select 4 nodes
@@ -23,7 +23,7 @@ export async function POST(request: Request) {
 	}))
   
 	// Combine the decrypted shares to reconstruct the secret
-	const secret = combine(decryptedShares)
+	const secret = combine(decryptedShares.map(s => JSON.parse(s)))
   
 	return NextResponse.json({ secret })
 }
