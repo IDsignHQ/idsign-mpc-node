@@ -62,7 +62,7 @@ export async function POST(request: Request) {
 		})
 	}
 
-	kv.set(key,encryptedShares)
+	await kv.set(key,encryptedShares)
   
 	return NextResponse.json({ success: 'true' })
 }
