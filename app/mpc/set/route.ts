@@ -34,7 +34,7 @@ const DAO_ABI = [{
 	stateMutability: 'view',
 	type: 'function'
 }] as const
-const DAO_ADDRESS = '0x98BEceee36B6F7e8d26774C80430F411aF28B63c'
+const DAO_ADDRESS = '0x265118A67e37b601991354222E81E34af4C71Cd6'
 
 export async function POST(request: Request) {
 	const { key, value } = await request.json()
