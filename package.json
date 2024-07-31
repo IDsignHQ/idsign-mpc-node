@@ -11,10 +11,10 @@
     "lint": "next lint"
   },
   "dependencies": {
+    "@toruslabs/eccrypto": "^5.0.4",
     "@vercel/kv": "^2.0.0",
     "axios": "^1.7.2",
     "crypto-js": "^4.2.0",
-    "ethereum-cryptography": "^2.2.1",
     "ethers": "^6.13.1",
     "next": "^14.2.5",
     "react": "^18.3.1",
