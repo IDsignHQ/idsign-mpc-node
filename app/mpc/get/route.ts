@@ -18,9 +18,9 @@ export async function POST(request: Request) {
 	const selectedShares = encryptedShares.sort(() => 0.5 - Math.random()).slice(0, 4)
 	const decryptedShares = []
 	for (let j = 0; j < selectedShares.length; j++) {
-		const response = await axios.post(`https://${selectedShares[j].url}/mpc/decrypt`, { selectedShares:selectedShares[j] })
+		const response = await axios.post(`https://${selectedShares[j].url}/mpc/decrypt`, { encryptedShare:selectedShares[j] })
 		const element = response.data.decryptedShare
-		decryptedShares.push(element)
+		decryptedShares.push(Buffer.from(element,'base64'))
 	}
 
 	const recovered = combine(decryptedShares).toString()

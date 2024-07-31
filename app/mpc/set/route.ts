@@ -43,7 +43,7 @@ export async function POST(request: Request) {
 	const daoContract = new ethers.Contract(DAO_ADDRESS, DAO_ABI, provider)
   
 	const nodes = await daoContract.getNodes()
-	const nodesWithBuffers = nodes.map((n:string) => ({
+	const nodesWithBuffers = nodes.map((n:any) => ({
 		pub: Buffer.from(n[0], 'base64')
 	}))
 
