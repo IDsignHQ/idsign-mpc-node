@@ -37,8 +37,19 @@ const DAO_ABI = [{
 const DAO_ADDRESS = '0x265118A67e37b601991354222E81E34af4C71Cd6'
 
 export async function POST(request: Request) {
-	const { key, value } = await request.json()
-  
+	const { key, value, acls } = await request.json()
+	if (!key) {
+		return NextResponse.json({ error: 'Key is required in POST body!' }, { status: 400 })
+	}
+	if (!value) {
+		return NextResponse.json({ error: 'Value is required in POST body!' }, { status: 400 })
+	}
+
+	const sharesAvailable: any[] | null = await kv.get(key)
+	if(sharesAvailable){
+		return NextResponse.json({ error: 'Secret shares already available for this key' }, { status: 400 })
+	}
+
 	const provider = new ethers.JsonRpcProvider('https://ethereum-sepolia-rpc.publicnode.com')
 	const daoContract = new ethers.Contract(DAO_ADDRESS, DAO_ABI, provider)
   
@@ -54,6 +65,7 @@ export async function POST(request: Request) {
 		const element = await encrypt(nodesWithBuffers[i].pub, sharesBuffer[i])
 		// Store the encrypted data as an object with Buffer properties
 		encryptedShares.push({
+			acls: acls || [],
 			url: nodes[i][1],
 			iv: element.iv,
 			ephemPublicKey: element.ephemPublicKey,
@@ -62,7 +74,7 @@ export async function POST(request: Request) {
 		})
 	}
 
-	kv.set(key,encryptedShares)
+	await kv.set(key,encryptedShares)
   
 	return NextResponse.json({ success: 'true' })
 }
