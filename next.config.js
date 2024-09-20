@@ -2,7 +2,6 @@
   
 const nextConfig = {
 	reactStrictMode: true,
-	transpilePackages: ['@idsign/evm-contracts'],
 	async headers() {
 		return [
 			{
@@ -10,7 +9,7 @@ const nextConfig = {
 				headers: [
 					{
 						key: 'Access-Control-Allow-Origin',
-						value: '*' // Set your origin
+						value: '*'
 					},
 					{
 						key: 'Access-Control-Allow-Methods',
