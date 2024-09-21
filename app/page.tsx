@@ -1,3 +1,3 @@
 export default function Page() {
-	return <h1>ZK-Vaults - MPC Decentrazied Key Management Protocol</h1>
+	return <h1>idSign ZK MPC Layer 3 Node</h1>
 }

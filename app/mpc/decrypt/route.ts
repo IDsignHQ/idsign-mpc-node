@@ -6,6 +6,7 @@ export async function POST(request: Request) {
 		return NextResponse.json({ error: 'Node private key is required' }, { status: 400 })
 	}
 	const { encryptedShare } = await request.json()
+	
 	const decryptedShare = await decrypt(Buffer.from(process.env.NODE_PRIVATE_KEY, 'base64'), {
 		iv: Buffer.from(encryptedShare.iv, 'base64'),
 		ephemPublicKey: Buffer.from(encryptedShare.ephemPublicKey, 'base64'),
