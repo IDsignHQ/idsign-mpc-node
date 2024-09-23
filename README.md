@@ -1,11 +1,13 @@
-# zkVaults Module (DKMS)
+# zkVaults MPC Node 
 ZK-MPC encrypted secret sharing module enabling the most private decentralized file sharing with no one in the middle, not event idSign; ONLY the wallets added to document can ever reconstruct and decrypt the documents shared via IPFS
 
 ---
+### One-Click Deploy
 
-### TL;DR
+Deploy the example using [Vercel](https://vercel.com):
 
-Imagine you want to send a secret message or file to someone or to a group of members such as a DAO. With zkVaults, you can encrypt the data on the frontend with a unique generated key and this key gets stored on 3 nodes on an MPC blockchain (partisiablockchain.com) or any Advanced MPC blockchain. The other members can then request the secret key, and decrypt the data that was stored publically but encrypted.
+[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https%3A%2F%2Fgithub.com%2Fidsignhq%2Fzk-mpc-node%2Ftree%2Fmain&project-name=idsign-zk-mpc-node&repository-name=idsign-zk-mpc-node&demo-title=idSign%20ZK%20MPC%20Node&demo-description=Validator%20Node%20idsign%20MPC&demo-url=https%3A%2F%2Fapp.idsign.com%2F&demo-image=https%3A%2F%2Fapp.idsign.com%2Fog.png&stores=%5B%7B"type"%3A"kv"%7D%5D)
+
 
 ---
 
@@ -19,9 +21,9 @@ Securely share a secret among a predefined set of users/wallets, authorized via 
 
 ### **Use Cases:**
 
-- End-to-end Encrypted on-chain messaging
-- Decentralized file-sharing (sharing the decryption key of an encrypted file stored on IPFS)
+- End-to-end Encrypted on-chain secret sharing
+- Decentralized file-sharing (sharing access for an encrypted file stored on IPFS)
 - Sharing information privately between DAO members
-- Token-Gating without relying on a server to “Gate” the resource or the key to the resource
+- Token-Gating without relying on a server to own, or “Gate”, the resource or data
 - Many more…
 
