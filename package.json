@@ -4,9 +4,6 @@
   "description": "",
   "author": "idSign Inc.",
   "license": "BSD-1",
-  "engines": {
-    "node": "22.x"
-  },
   "scripts": {
     "dev": "next dev -p 55000",
     "build": "next build",
