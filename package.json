@@ -1,5 +1,5 @@
 {
-  "name": "@idsign/zk-mpc-node",
+  "name": "@idsign/mpc-node",
   "version": "0.1.0",
   "description": "",
   "author": "idSign Inc.",
@@ -12,6 +12,10 @@
   },
   "dependencies": {
     "@toruslabs/eccrypto": "^5.0.4",
+    "ethers": "^6.13.2",
+    "@ton/core": "^0.58.1",
+		"@ton/crypto": "^3.3.0",
+		"@ton/ton": "^15.0.0",
     "next": "^14.2.5",
     "react": "^18.3.1",
     "react-dom": "^18.3.1"
